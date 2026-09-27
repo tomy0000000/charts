@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "email-mcp.fullname" . }}-caddy
+  labels:
+    {{- include "email-mcp.labels" . | nindent 4 }}
+data:
+  Caddyfile: |
+    {
+    	admin off
+    	auto_https off
+
+    	# Upstream errors (502 while the server boots) are logged by
+    	# http.log.error, outside the access log below, so filter them too.
+    	log {
+    		exclude http.log.error
+    	}
+    	log errors {
+    		include http.log.error
+    		format filter {
+    			request>headers>Authorization delete
+    			request>headers>X-Api-Key delete
+    			request>uri regexp "^/[^/]+/mcp" "/REDACTED/mcp"
+    		}
+    	}
+    }
+
+    # TLS terminates at the Ingress. This listener only checks the shared token
+    # (MCP_BEARER_TOKEN, injected from the Secret) and forwards /mcp to the
+    # server on pod loopback. Anything else is 401.
+    http://:{{ .Values.proxy.port }} {
+    	handle /healthz {
+    		respond "ok" 200
+    	}
+    {{- if .Values.auth.methods.bearerHeader }}
+
+    	@bearer {
+    		path /mcp /mcp/*
+    		header Authorization "Bearer {env.MCP_BEARER_TOKEN}"
+    	}
+    	handle @bearer {
+    		reverse_proxy 127.0.0.1:{{ .Values.server.port }}
+    	}
+    {{- end }}
+    {{- if .Values.auth.methods.apiKeyHeader }}
+
+    	@apikey {
+    		path /mcp /mcp/*
+    		header X-Api-Key "{env.MCP_BEARER_TOKEN}"
+    	}
+    	handle @apikey {
+    		reverse_proxy 127.0.0.1:{{ .Values.server.port }}
+    	}
+    {{- end }}
+    {{- if .Values.auth.methods.secretPath }}
+
+    	@secretpath {
+    		expression `{http.request.uri.path} == "/" + {env.MCP_BEARER_TOKEN} + "/mcp"`
+    	}
+    	handle @secretpath {
+    		rewrite * /mcp
+    		reverse_proxy 127.0.0.1:{{ .Values.server.port }}
+    	}
+    {{- end }}
+
+    	handle {
+    		respond 401
+    	}
+
+    	log {
+    		output stdout
+    		format filter {
+    			request>headers>Authorization delete
+    			request>headers>X-Api-Key delete
+    			request>uri regexp "^/[^/]+/mcp" "/REDACTED/mcp"
+    		}
+    	}
+    }

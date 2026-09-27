@@ -1,0 +1,134 @@
+# Public hostname the MCP endpoint is served on. Used for the Ingress host and
+# for the server's DNS-rebinding allowlist (MCP_ALLOWED_HOSTS). The proxy
+# forwards the incoming Host header unchanged, so this must match what clients
+# actually connect to.
+host: email-mcp.example.com
+
+# Origins accepted by the server in addition to https://<host>. Claude's cloud
+# connector may send Origin: https://claude.ai; other origins get 403.
+extraAllowedOrigins:
+  - https://claude.ai
+
+# The mailbox. Address and IMAP app password come from a Secret you manage and
+# reach the server as environment variables, so a rotated Secret takes effect
+# on the next pod restart. Outgoing mail is never configured and the send
+# policy is pinned to deny, so the server can only read and organise.
+account:
+  # Required. Secret holding the mailbox address and the IMAP app password.
+  existingSecret: ""
+  # Key holding the address. It is also the IMAP login name.
+  usernameKey: username
+  passwordKey: password
+  imap:
+    host: mail.example.com
+    port: 993
+    # false: implicit TLS on connect (993). true: STARTTLS (143).
+    starttls: false
+
+image:
+  repository: ghcr.io/wh1isper/mcp-email-server
+  # Defaults to Chart.appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Caddy sidecar. It is the only thing the Service points at; it checks the
+# shared token and proxies /mcp to the server on pod loopback.
+proxy:
+  image:
+    repository: caddy
+    tag: "2.11.4"
+    pullPolicy: IfNotPresent
+  port: 8080
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+
+auth:
+  # Shared token. Leave empty to have one generated on first install; it is
+  # read back from the existing Secret on upgrades, so it stays stable.
+  token: ""
+  # Or point at a Secret you manage. Takes precedence over `token`.
+  existingSecret: ""
+  existingSecretKey: token
+  # Which ways of presenting the token the proxy accepts. Anything else is 401.
+  methods:
+    # Authorization: Bearer <token>   (Claude Code: claude mcp add --header ...)
+    bearerHeader: true
+    # X-Api-Key: <token>              (clients that allow custom headers)
+    apiKeyHeader: true
+    # https://<host>/<token>/mcp      (claude.ai custom connectors, which probe
+    #                                  without headers and fall into OAuth on 401)
+    secretPath: true
+
+server:
+  # Loopback bind inside the pod. Never exposed by the Service.
+  port: 9557
+  extraEnv: []
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+# The metadata index (a rebuildable SQLite cache of message headers) lives
+# here. Without persistence every restart rebuilds it from IMAP.
+persistence:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 100Mi
+
+# mcp-email-server skips the index unless its directory is owner-only (mode
+# 0700, owned by the running uid) and no ancestor is group- or world-writable.
+# A fresh PVC is root-owned, so a root init container creates /data/config with
+# the right owner and mode. Disable if your cluster forbids root init
+# containers, and prepare the directory some other way; otherwise the server
+# logs a warning and answers every listing from IMAP directly.
+volumePermissions:
+  enabled: true
+
+# Applied to the server and the proxy.
+containerSecurityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  # e.g. cert-manager.io/cluster-issuer: letsencrypt
+  annotations: {}
+  tls:
+    enabled: true
+    # Defaults to <release fullname>-tls. cert-manager fills it when annotated.
+    secretName: ""
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Raw manifests installed with the release, rendered through tpl. Meant for
+# the ExternalSecrets (or plain Secrets) behind auth.existingSecret and
+# account.existingSecret.
+extraObjects: []

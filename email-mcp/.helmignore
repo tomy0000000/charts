@@ -1,0 +1,4 @@
+# Kept out of the packaged chart
+ci/
+test/
+.DS_Store

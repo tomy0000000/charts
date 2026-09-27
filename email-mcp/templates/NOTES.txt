@@ -1,0 +1,25 @@
+{{ .Chart.Name }} {{ .Chart.Version }} (mcp-email-server {{ include "email-mcp.imageTag" . }}) is installed as release "{{ .Release.Name }}".
+
+The mailbox is read from Secret "{{ .Values.account.existingSecret }}" into the
+server's environment at pod start. Outgoing mail is not configured and the
+send policy denies every recipient. After rotating the Secret:
+
+     kubectl -n {{ .Release.Namespace }} rollout restart deploy/{{ include "email-mcp.fullname" . }}
+{{- if not .Values.auth.existingSecret }}
+
+Read the shared token:
+
+     kubectl -n {{ .Release.Namespace }} get secret {{ include "email-mcp.secretName" . }} \
+       -o jsonpath='{.data.{{ include "email-mcp.secretKey" . }}}' | base64 -d; echo
+{{- end }}
+
+Endpoints ({{ if .Values.ingress.enabled }}via the Ingress{{ else }}once you expose the Service "{{ include "email-mcp.fullname" . }}" on https://{{ .Values.host }}{{ end }}):
+{{- if .Values.auth.methods.secretPath }}
+  claude.ai custom connector, "No sign-in":  https://{{ .Values.host }}/<token>/mcp
+{{- end }}
+{{- if .Values.auth.methods.bearerHeader }}
+  Claude Code:  claude mcp add --transport http mailcow-email https://{{ .Values.host }}/mcp --header "Authorization: Bearer <token>"
+{{- end }}
+{{- if .Values.auth.methods.apiKeyHeader }}
+  Header form:  X-Api-Key: <token> on https://{{ .Values.host }}/mcp
+{{- end }}

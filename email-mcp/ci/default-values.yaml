@@ -1,0 +1,9 @@
+# Values helm lint and test/smoke.sh render with. The two Secrets are required inputs.
+host: email-mcp.example.com
+auth:
+  existingSecret: email-mcp-token
+  existingSecretKey: token
+account:
+  existingSecret: email-mcp-imap
+  imap:
+    host: mail.example.com

@@ -1,0 +1,161 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "email-mcp.fullname" . }}
+  labels:
+    {{- include "email-mcp.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  # One writer on the SQLite index, and the PVC is ReadWriteOnce.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "email-mcp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "email-mcp.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/caddyfile: {{ include (print $.Template.BasePath "/configmap-caddy.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.volumePermissions.enabled }}
+      initContainers:
+        # The last chmod is for the emptyDir case: kubelet makes it world-writable.
+        - name: volume-permissions
+          image: {{ include "email-mcp.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["sh", "-c"]
+          args:
+            - >-
+              mkdir -p /data/config &&
+              chown {{ .Values.containerSecurityContext.runAsUser }}:{{ .Values.containerSecurityContext.runAsGroup }} /data/config &&
+              chmod 0700 /data/config &&
+              chmod 0755 /data
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - CHOWN
+                - FOWNER
+                - DAC_OVERRIDE
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      {{- end }}
+      containers:
+        - name: server
+          image: {{ include "email-mcp.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["streamable-http"]
+          env:
+            {{- include "email-mcp.serverEnv" . | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          # Bound to 127.0.0.1, so a tcpSocket probe from the kubelet cannot
+          # reach it; connect from inside the container instead.
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import socket; socket.create_connection(('127.0.0.1', {{ .Values.server.port }}), timeout=2).close()"
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import socket; socket.create_connection(('127.0.0.1', {{ .Values.server.port }}), timeout=2).close()"
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.server.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+        - name: proxy
+          image: {{ .Values.proxy.image.repository }}:{{ .Values.proxy.image.tag }}
+          imagePullPolicy: {{ .Values.proxy.image.pullPolicy }}
+          args: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+          env:
+            - name: MCP_BEARER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "email-mcp.secretName" . }}
+                  key: {{ include "email-mcp.secretKey" . }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.proxy.port }}
+              protocol: TCP
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+            readOnlyRootFilesystem: true
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.proxy.resources | nindent 12 }}
+          volumeMounts:
+            - name: caddyfile
+              mountPath: /etc/caddy/Caddyfile
+              subPath: Caddyfile
+              readOnly: true
+            - name: caddy-data
+              mountPath: /data
+            - name: caddy-config
+              mountPath: /config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (printf "%s-data" (include "email-mcp.fullname" .)) }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: tmp
+          emptyDir: {}
+        - name: caddyfile
+          configMap:
+            name: {{ include "email-mcp.fullname" . }}-caddy
+        - name: caddy-data
+          emptyDir: {}
+        - name: caddy-config
+          emptyDir: {}
