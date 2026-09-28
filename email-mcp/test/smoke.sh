@@ -34,19 +34,23 @@ ENV=(-e HOME=/data/config -e MCP_EMAIL_SERVER_CONFIG_PATH=/data/config/config.to
      -e MCP_HOST=127.0.0.1 -e MCP_PORT=9557
      -e MCP_ALLOWED_HOSTS="$HOST" -e MCP_ALLOWED_ORIGINS="https://$HOST,https://claude.ai")
 
+# Same capability sets and no-new-privileges as the Deployment's securityContexts.
+RESTRICT=(--cap-drop ALL --security-opt no-new-privileges)
+
 echo "== volume-permissions (root)"
 docker volume create "$PREFIX-data" >/dev/null
-docker run --rm -v "$PREFIX-data:/data" --user 0:0 --entrypoint sh "$SERVER_IMAGE" \
+docker run --rm -v "$PREFIX-data:/data" --user 0:0 "${RESTRICT[@]}" \
+  --cap-add CHOWN --cap-add FOWNER --cap-add DAC_OVERRIDE --entrypoint sh "$SERVER_IMAGE" \
   -c "mkdir -p /data/config && chown $UID_GID /data/config && chmod 0700 /data/config && chmod 0755 /data"
 
 echo "== server (held back a few seconds so the proxy is probed while the upstream is down)"
-docker run -d --name "$PREFIX-server" -v "$PREFIX-data:/data" --user "$UID_GID" "${ENV[@]}" \
+docker run -d --name "$PREFIX-server" -v "$PREFIX-data:/data" --user "$UID_GID" "${RESTRICT[@]}" "${ENV[@]}" \
   -p 127.0.0.1:18080:8080 --entrypoint sh "$SERVER_IMAGE" \
   -c 'sleep 5; exec tini -- mcp-email-server streamable-http' >/dev/null
 
 echo "== proxy (shares the server's network namespace, like a pod)"
-docker run -d --name "$PREFIX-proxy" --network "container:$PREFIX-server" --user "$UID_GID" \
-  -e MCP_BEARER_TOKEN="$TOKEN" -v "$CADDYFILE:/etc/caddy/Caddyfile:ro" --read-only \
+docker run -d --name "$PREFIX-proxy" --network "container:$PREFIX-server" --user "$UID_GID" "${RESTRICT[@]}" \
+  --cap-add NET_BIND_SERVICE -e MCP_BEARER_TOKEN="$TOKEN" -v "$CADDYFILE:/etc/caddy/Caddyfile:ro" --read-only \
   --tmpfs /data --tmpfs /config "$PROXY_IMAGE" \
   caddy run --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
 
