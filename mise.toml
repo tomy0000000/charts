@@ -1,3 +1,2 @@
 [tools]
 helm = "latest"
-"ubi:helm/chart-releaser" = { version = "1.7.0", exe = "cr" }

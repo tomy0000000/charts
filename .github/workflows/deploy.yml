@@ -1,0 +1,95 @@
+name: 🚀 Release & Deploy
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  REPO_URL: https://charts.tomy.me
+
+jobs:
+  build:
+    name: 🛠 Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🛒 Checkout
+        uses: actions/checkout@v7
+
+      - name: ⚙️ Setup Helm
+        uses: azure/setup-helm@v5
+
+      - name: 🔍 Lint
+        run: |
+          for chart in */Chart.yaml; do
+            dir=$(dirname "$chart")
+            values=()
+            [ -f "$dir/ci/default-values.yaml" ] && values=(--values "$dir/ci/default-values.yaml")
+            helm lint "$dir" --strict "${values[@]}"
+          done
+
+      - name: 📦 Package
+        run: |
+          for chart in */Chart.yaml; do
+            helm package "$(dirname "$chart")" --destination packages
+          done
+
+      # A tag per chart version, holding its .tgz. Versions already released are left alone.
+      - name: 🏷️ Release
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for pkg in packages/*.tgz; do
+            tag=$(basename "$pkg" .tgz)
+            if gh release view "$tag" > /dev/null 2>&1; then
+              echo "$tag already released"
+              continue
+            fi
+            gh release create "$tag" "$pkg" --title "$tag"
+          done
+
+      # The site is a mirror of every release, so it can be rebuilt from nothing.
+      - name: 🏗️ Build index
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p public
+          for tag in $(gh release list --json tagName --jq '.[].tagName'); do
+            gh release download "$tag" --pattern '*.tgz' --dir public
+          done
+          cp --no-clobber packages/*.tgz public/
+          helm repo index public --url "$REPO_URL"
+
+      - name: ⬆️ Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ./public
+
+  deploy:
+    name: 🚀 Deploy
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    steps:
+      - name: 🚀 Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
