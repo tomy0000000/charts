@@ -76,10 +76,20 @@ jobs:
           cp --no-clobber packages/*.tgz public/
           helm repo index public --url "$REPO_URL"
 
+      # Jekyll renders README.md as the index page and copies the rest as-is.
+      - name: 📄 Add README
+        run: cp README.md public/
+
+      - name: 🧱 Build site
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./public
+          destination: ./_site
+
       - name: ⬆️ Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: ./public
+          path: ./_site
 
   deploy:
     name: 🚀 Deploy
