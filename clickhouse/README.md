@@ -59,6 +59,32 @@ The `default` user ships with no password. The NetworkPolicy is what keeps
 that acceptable, so leave `networkPolicy.enabled` on unless you define users
 of your own in `usersFiles`.
 
+## Backups
+
+With `backup.enabled`, a CronJob has the server run `BACKUP DATABASE ... TO
+S3()` for each listed database, a full backup per run into its own folder,
+`<url>/<database>/<UTC timestamp>`. The server does the upload, the job only
+issues the statement. The S3 key comes from a Secret you manage, with
+`accessKeyId` and `secretAccessKey` keys by default:
+
+```yaml
+backup:
+  enabled: true
+  schedule: "0 3 * * *"
+  url: https://<account>.r2.cloudflarestorage.com/<bucket>
+  databases:
+    - plausible_events_db
+  existingSecret: r2-backup
+```
+
+Nothing prunes old folders. Put a lifecycle rule on the bucket.
+
+To start a server from one of those folders, set `backup.recoverFrom` to it
+before the first install. A `post-install` hook waits for the server and runs
+`RESTORE ALL` from that folder, once. Later upgrades ignore the value, so it
+can stay in place as a record of where the data came from. The restore needs
+`backup.existingSecret` even if the schedule is off.
+
 ## Values
 
 See [values.yaml](values.yaml). Every key is commented.

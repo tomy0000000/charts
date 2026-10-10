@@ -1,0 +1,42 @@
+{{- if .Values.backup.recoverFrom }}
+# Runs once, after the first install, and never on upgrades. The Job stays
+# around for its logs until the next install replaces it.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "clickhouse.fullname" . }}-restore
+  labels:
+    {{- include "clickhouse.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 1800
+  template:
+    metadata:
+      labels:
+        {{- include "clickhouse.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: restore
+    spec:
+      restartPolicy: Never
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: restore
+          image: {{ include "clickhouse.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          env:
+            {{- include "clickhouse.backupEnv" . | nindent 12 }}
+            - name: RECOVER_FROM
+              value: {{ .Values.backup.recoverFrom | quote }}
+          # Hooks fire when the StatefulSet exists, not when the server answers, so wait for it.
+          command:
+            - sh
+            - -euc
+            - |
+              until clickhouse-client --host "$CLICKHOUSE_HOST" --query "SELECT 1" > /dev/null 2>&1; do sleep 5; done
+              clickhouse-client --host "$CLICKHOUSE_HOST" --query "RESTORE ALL FROM S3('$RECOVER_FROM', '$ACCESS_KEY_ID', '$SECRET_ACCESS_KEY')"
+{{- end }}

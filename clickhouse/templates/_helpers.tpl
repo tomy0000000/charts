@@ -38,3 +38,23 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "clickhouse.image" -}}
 {{- printf "%s:%s" .Values.image.repository (include "clickhouse.imageTag" .) }}
 {{- end }}
+
+{{/*
+Environment the backup and restore jobs run clickhouse-client with.
+*/}}
+{{- define "clickhouse.backupEnv" -}}
+- name: CLICKHOUSE_HOST
+  value: {{ include "clickhouse.fullname" . }}
+- name: BACKUP_URL
+  value: {{ required "backup.url is required" .Values.backup.url | quote }}
+- name: ACCESS_KEY_ID
+  valueFrom:
+    secretKeyRef:
+      name: {{ required "backup.existingSecret is required" .Values.backup.existingSecret | quote }}
+      key: {{ .Values.backup.accessKeyIdKey | quote }}
+- name: SECRET_ACCESS_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.backup.existingSecret | quote }}
+      key: {{ .Values.backup.secretAccessKeyKey | quote }}
+{{- end }}

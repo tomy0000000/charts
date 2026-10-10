@@ -60,5 +60,23 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
+# The server backs each database up into an S3-compatible bucket on a
+# schedule, with BACKUP DATABASE ... TO S3(). Every run is a full backup in its
+# own folder, <url>/<database>/<UTC timestamp>. Nothing here deletes old ones:
+# give the bucket a lifecycle rule.
+backup:
+  enabled: false
+  schedule: "0 3 * * *"
+  # https://<endpoint>/<bucket>[/<prefix>]
+  url: ""
+  databases: []
+  # Secret holding the S3 key, needed by the schedule and by recoverFrom.
+  existingSecret: ""
+  accessKeyIdKey: accessKeyId
+  secretAccessKeyKey: secretAccessKey
+  # One backup folder, as the schedule writes them, restored with RESTORE ALL
+  # when the release is first installed. Read once, ignored on upgrades.
+  recoverFrom: ""
+
 # Raw manifests installed with the release, rendered through tpl.
 extraObjects: []

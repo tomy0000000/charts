@@ -16,3 +16,10 @@ usersFiles:
 extraEnv:
   - name: CLICKHOUSE_SKIP_USER_SETUP
     value: "1"
+backup:
+  enabled: true
+  url: https://example.r2.cloudflarestorage.com/bucket
+  databases:
+    - example
+  existingSecret: r2-backup
+  recoverFrom: https://example.r2.cloudflarestorage.com/bucket/example/20260101T000000Z
