@@ -65,7 +65,10 @@ With `backup.enabled`, a CronJob has the server run `BACKUP DATABASE ... TO
 S3()` for each listed database, a full backup per run into its own folder,
 `<url>/<database>/<UTC timestamp>`. The server does the upload, the job only
 issues the statement. The S3 key comes from a Secret you manage, with
-`accessKeyId` and `secretAccessKey` keys by default:
+`accessKeyId` and `secretAccessKey` keys by default. It goes into the server's
+environment, and the statements name only the URL, so the key shows up in no
+query log and no client error. A rotated key takes effect on the next pod
+restart.
 
 ```yaml
 backup:

@@ -38,5 +38,5 @@ spec:
             - -euc
             - |
               until clickhouse-client --host "$CLICKHOUSE_HOST" --query "SELECT 1" > /dev/null 2>&1; do sleep 5; done
-              clickhouse-client --host "$CLICKHOUSE_HOST" --query "RESTORE ALL FROM S3('$RECOVER_FROM', '$ACCESS_KEY_ID', '$SECRET_ACCESS_KEY')"
+              clickhouse-client --host "$CLICKHOUSE_HOST" --query "RESTORE ALL FROM S3('$RECOVER_FROM')"
 {{- end }}

@@ -37,6 +37,6 @@ spec:
                 - |
                   stamp=$(date -u +%Y%m%dT%H%M%SZ)
                   {{- range required "backup.databases is required" .Values.backup.databases }}
-                  clickhouse-client --host "$CLICKHOUSE_HOST" --query "BACKUP DATABASE {{ . }} TO S3('$BACKUP_URL/{{ . }}/$stamp', '$ACCESS_KEY_ID', '$SECRET_ACCESS_KEY')"
+                  clickhouse-client --host "$CLICKHOUSE_HOST" --query "BACKUP DATABASE {{ . }} TO S3('$BACKUP_URL/{{ . }}/$stamp')"
                   {{- end }}
 {{- end }}

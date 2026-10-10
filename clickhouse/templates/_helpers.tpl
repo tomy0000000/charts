@@ -40,6 +40,31 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Whether the server needs S3 credentials: for the schedule, or for a one-time restore.
+*/}}
+{{- define "clickhouse.s3" -}}
+{{- if or .Values.backup.enabled .Values.backup.recoverFrom }}true{{ end }}
+{{- end }}
+
+{{/*
+The S3 key, in the server's environment. With use_environment_credentials on,
+BACKUP and RESTORE statements name only the URL, so the key never reaches a
+query log or a client's error output.
+*/}}
+{{- define "clickhouse.s3Env" -}}
+- name: AWS_ACCESS_KEY_ID
+  valueFrom:
+    secretKeyRef:
+      name: {{ required "backup.existingSecret is required" .Values.backup.existingSecret | quote }}
+      key: {{ .Values.backup.accessKeyIdKey | quote }}
+- name: AWS_SECRET_ACCESS_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.backup.existingSecret | quote }}
+      key: {{ .Values.backup.secretAccessKeyKey | quote }}
+{{- end }}
+
+{{/*
 Environment the backup and restore jobs run clickhouse-client with.
 */}}
 {{- define "clickhouse.backupEnv" -}}
@@ -47,14 +72,4 @@ Environment the backup and restore jobs run clickhouse-client with.
   value: {{ include "clickhouse.fullname" . }}
 - name: BACKUP_URL
   value: {{ required "backup.url is required" .Values.backup.url | quote }}
-- name: ACCESS_KEY_ID
-  valueFrom:
-    secretKeyRef:
-      name: {{ required "backup.existingSecret is required" .Values.backup.existingSecret | quote }}
-      key: {{ .Values.backup.accessKeyIdKey | quote }}
-- name: SECRET_ACCESS_KEY
-  valueFrom:
-    secretKeyRef:
-      name: {{ .Values.backup.existingSecret | quote }}
-      key: {{ .Values.backup.secretAccessKeyKey | quote }}
 {{- end }}

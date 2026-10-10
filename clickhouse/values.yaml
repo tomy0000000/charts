@@ -70,7 +70,8 @@ backup:
   # https://<endpoint>/<bucket>[/<prefix>]
   url: ""
   databases: []
-  # Secret holding the S3 key, needed by the schedule and by recoverFrom.
+  # Secret holding the S3 key. The server reads it into its environment at
+  # start, so a rotated key takes effect on the next pod restart.
   existingSecret: ""
   accessKeyIdKey: accessKeyId
   secretAccessKeyKey: secretAccessKey

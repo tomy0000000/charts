@@ -4,7 +4,7 @@ description: >-
   A single ClickHouse server: one StatefulSet with a persistent volume, its
   Service, and a NetworkPolicy keeping it to its namespace.
 type: application
-version: 0.2.0
+version: 0.3.0
 appVersion: "24.12.6.70"
 home: https://github.com/tomy0000000/charts
 sources:
