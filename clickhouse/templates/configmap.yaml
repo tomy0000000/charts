@@ -1,0 +1,15 @@
+{{- if or .Values.configFiles .Values.usersFiles }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "clickhouse.fullname" . }}
+  labels:
+    {{- include "clickhouse.labels" . | nindent 4 }}
+data:
+  {{- range $name, $content := .Values.configFiles }}
+  config.d-{{ $name }}: {{ $content | quote }}
+  {{- end }}
+  {{- range $name, $content := .Values.usersFiles }}
+  users.d-{{ $name }}: {{ $content | quote }}
+  {{- end }}
+{{- end }}

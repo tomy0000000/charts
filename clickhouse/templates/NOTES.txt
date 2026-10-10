@@ -1,0 +1,8 @@
+{{ .Chart.Name }} {{ .Chart.Version }} (ClickHouse {{ include "clickhouse.imageTag" . }}) is installed as release "{{ .Release.Name }}".
+
+Inside the namespace:
+  HTTP    http://{{ include "clickhouse.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.httpPort }}
+  native  {{ include "clickhouse.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.nativePort }}
+
+A client, as the default user:
+  kubectl -n {{ .Release.Namespace }} exec -it {{ include "clickhouse.fullname" . }}-0 -- clickhouse-client

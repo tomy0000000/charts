@@ -1,0 +1,64 @@
+image:
+  repository: clickhouse/clickhouse-server
+  # Defaults to Chart.appVersion. Append -alpine for the smaller image.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Extra server settings, mounted as /etc/clickhouse-server/config.d/<name>.
+# Each value is one XML file with a <clickhouse> root. The stock config stays
+# in place, these override it.
+configFiles: {}
+#  listen.xml: |
+#    <clickhouse>
+#        <listen_host>0.0.0.0</listen_host>
+#    </clickhouse>
+
+# Same for users, profiles and quotas, mounted as /etc/clickhouse-server/users.d/<name>.
+usersFiles: {}
+
+# The image creates a user from CLICKHOUSE_USER and CLICKHOUSE_PASSWORD on
+# first start unless CLICKHOUSE_SKIP_USER_SETUP=1 is set here.
+extraEnv: []
+
+# Only pods in the release namespace may reach the server. The stock default
+# user has no password, so turn this off only with users of your own.
+networkPolicy:
+  enabled: true
+
+persistence:
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+
+resources: {}
+
+# The image's clickhouse user. fsGroup makes a fresh volume writable by it.
+podSecurityContext:
+  runAsUser: 101
+  runAsGroup: 101
+  fsGroup: 101
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  httpPort: 8123
+  nativePort: 9000
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Raw manifests installed with the release, rendered through tpl.
+extraObjects: []

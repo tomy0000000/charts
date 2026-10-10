@@ -10,6 +10,7 @@ helm search repo tomy0000000
 | Chart                    | What it runs                                                        |
 | ------------------------ | ------------------------------------------------------------------- |
 | [email-mcp](email-mcp/)  | mcp-email-server as a remote MCP server for a mailcow mailbox       |
+| [clickhouse](clickhouse/) | A single ClickHouse server with a persistent volume                |
 
 ## Releasing
 

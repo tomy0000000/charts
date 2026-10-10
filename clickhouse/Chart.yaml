@@ -1,0 +1,19 @@
+apiVersion: v2
+name: clickhouse
+description: >-
+  A single ClickHouse server: one StatefulSet with a persistent volume, its
+  Service, and a NetworkPolicy keeping it to its namespace.
+type: application
+version: 0.1.0
+appVersion: "24.12.6.70"
+home: https://github.com/tomy0000000/charts
+sources:
+  - https://github.com/tomy0000000/charts
+  - https://github.com/ClickHouse/ClickHouse
+keywords:
+  - clickhouse
+  - olap
+  - database
+maintainers:
+  - name: tomy0000000
+    url: https://github.com/tomy0000000
