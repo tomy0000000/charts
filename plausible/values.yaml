@@ -13,6 +13,12 @@ env:
   CLICKHOUSE_DATABASE_URL: http://clickhouse:8123/plausible_events_db
   DISABLE_REGISTRATION: invite_only
 
+# Open-file limit set in the container before Plausible starts, as the upstream
+# compose file does with ulimits. The Erlang VM sizes its tables from this at
+# boot, and container runtimes hand out limits in the billions, which gets the
+# pod killed for memory before it does anything.
+openFiles: 65535
+
 image:
   repository: ghcr.io/plausible/community-edition
   # Defaults to Chart.appVersion.

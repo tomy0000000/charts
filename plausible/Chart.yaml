@@ -4,7 +4,7 @@ description: >-
   Plausible Community Edition, the web app alone: bring a Postgres and a
   ClickHouse, and the Secret that names them.
 type: application
-version: 0.1.0
+version: 0.1.1
 appVersion: "v3.2.1"
 home: https://github.com/tomy0000000/charts
 sources:

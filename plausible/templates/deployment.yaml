@@ -32,7 +32,7 @@ spec:
         - name: migrate
           image: {{ include "plausible.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["sh", "-c", "/entrypoint.sh db createdb && /entrypoint.sh db migrate"]
+          command: ["sh", "-c", "ulimit -n {{ .Values.openFiles }} && /entrypoint.sh db createdb && /entrypoint.sh db migrate"]
           {{- include "plausible.env" . | nindent 10 }}
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
@@ -45,7 +45,7 @@ spec:
         - name: plausible
           image: {{ include "plausible.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["/entrypoint.sh", "run"]
+          command: ["sh", "-c", "ulimit -n {{ .Values.openFiles }} && exec /entrypoint.sh run"]
           {{- include "plausible.env" . | nindent 10 }}
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
