@@ -1,0 +1,9 @@
+{{ .Chart.Name }} {{ .Chart.Version }} (Plausible CE {{ include "plausible.imageTag" . }}) is installed as release "{{ .Release.Name }}".
+
+Every key of Secret "{{ .Values.existingSecret }}" is read into the environment at pod start, so after
+changing it:
+
+     kubectl -n {{ .Release.Namespace }} rollout restart deploy/{{ include "plausible.fullname" . }}
+
+Expose Service "{{ include "plausible.fullname" . }}" on {{ .Values.baseURL }}. The first visit registers the
+first account, unless DISABLE_REGISTRATION says otherwise.

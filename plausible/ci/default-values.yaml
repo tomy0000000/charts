@@ -1,0 +1,2 @@
+# Values helm lint renders with. The Secret is a required input.
+existingSecret: plausible

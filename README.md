@@ -11,6 +11,7 @@ helm search repo tomy0000000
 | ------------------------ | ------------------------------------------------------------------- |
 | [email-mcp](email-mcp/)  | mcp-email-server as a remote MCP server for a mailcow mailbox       |
 | [clickhouse](clickhouse/) | A single ClickHouse server with a persistent volume                |
+| [plausible](plausible/)   | Plausible Community Edition on databases you bring                 |
 
 ## Releasing
 

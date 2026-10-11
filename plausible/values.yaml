@@ -1,0 +1,54 @@
+# Public URL of the dashboard. Plausible builds links from it and accepts
+# websocket connections only from it.
+baseURL: https://plausible.example.com
+
+# Required. Secret whose every key becomes an environment variable. At least
+# SECRET_KEY_BASE, TOTP_VAULT_KEY and DATABASE_URL, plus anything else that is
+# secret (SMTP password, Google client secret). See the configuration wiki:
+# https://github.com/plausible/community-edition/wiki/configuration
+existingSecret: ""
+
+# Settings that are not secret, as environment variables.
+env:
+  CLICKHOUSE_DATABASE_URL: http://clickhouse:8123/plausible_events_db
+  DISABLE_REGISTRATION: invite_only
+
+image:
+  repository: ghcr.io/plausible/community-edition
+  # Defaults to Chart.appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 256Mi
+  limits:
+    memory: 1Gi
+
+# The image runs as its own unprivileged user already.
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 80
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Raw manifests installed with the release, rendered through tpl. Meant for
+# the ExternalSecret behind existingSecret.
+extraObjects: []
